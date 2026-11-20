@@ -48,9 +48,7 @@ class LivewireController extends Controller
                 'class' => $widgetClass,
                 'id' => $snapshot['memo']['id'],
             ]);
-            foreach ($snapshot['data'] as $key => $value) {
-                $widget->$key = $value;
-            }
+            $widget->hydrateState($snapshot['data'] ?? []);
             foreach ($componentData['updates'] ?? [] as $prop => $val) {
                 if (property_exists($widget, $prop)) {
                     $widget->$prop = $val;

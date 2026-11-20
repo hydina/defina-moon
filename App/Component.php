@@ -10,9 +10,22 @@ use ReflectionProperty;
 use yii\helpers\Url;
 use yii\web\View;
 use Hydina\DefinaMoon\Assets\LivewireAsset;
+use yii\db\ActiveRecord;
+
 
 abstract class Component extends Widget
 {
+
+    private array $computedCache = [];
+
+    protected function computed(string $key, callable $callback): mixed
+    {
+        if (!array_key_exists($key, $this->computedCache)) {
+            $this->computedCache[$key] = $callback();
+        }
+        return $this->computedCache[$key];
+    }
+
     public function init()
     {
         $this->registerClientScript();
@@ -48,7 +61,7 @@ abstract class Component extends Widget
     public function buildSnapshot(): string
     {
         $payload = [
-            'data' => $this->getState(),
+            'data' => $this->dehydrateState(),
             'memo' => [
                 'id' => $this->getId(),
                 'name' => static::class,
@@ -61,9 +74,7 @@ abstract class Component extends Widget
                 'locale' => Yii::$app->language,
             ],
         ]; 
-        // $json = Json::encode($payload);
-        // $payload['checksum'] = hash_hmac('sha256', $json, Yii::$app->request->cookieValidationKey);
-        // return Json::encode($payload);
+
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $payload['checksum'] = hash_hmac('sha256', $json, Yii::$app->request->cookieValidationKey);
         return json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -71,13 +82,53 @@ abstract class Component extends Widget
 
     protected function view(string $view, array $params = []): string
     {
-        $innerHtml = $this->render($view, array_merge($this->getState(), $params));
+        $this->computedCache = [];
+        $innerHtml = $this->render($view, array_merge(
+            $this->getState(), 
+            ['component' => $this],
+            $params
+        ));
         return Html::tag('div', $innerHtml, [
             'wire:id' => $this->getId(),
             'wire:snapshot' => $this->buildSnapshot(),
             'wire:effects' => '{}',
         ]);
     }
+
+
+    public function dehydrateState(): array
+    {
+        $state = [];
+        foreach ($this->getState() as $key => $value) {
+            if ($value instanceof ActiveRecord) {
+                $state[$key] = [
+                    '__model' => get_class($value),
+                    'pk' => $value->getPrimaryKey(),
+                ];
+            } else {
+                $state[$key] = $value;
+            }
+        }
+        return $state;
+    }
+
+
+    public function hydrateState(array $data): void
+    {
+        foreach ($data as $key => $value) {
+            if (!property_exists($this, $key)) continue;
+
+            if (is_array($value) && isset($value['__model'], $value['pk'])) {
+                /** @var class-string<ActiveRecord> $modelClass */
+                $modelClass = $value['__model'];
+                $this->$key = $modelClass::findOne($value['pk']);
+            } else {
+                $this->$key = $value;
+            }
+        }
+    }
+
+
 
     public function registerClientScript()
     {

@@ -8,5 +8,6 @@ class LivewireAsset extends AssetBundle
     public $sourcePath = __DIR__ . '/dist';
     public $js = [
         'livewire.min.js',
+        'live.defina.moon.js'
     ];
 }
