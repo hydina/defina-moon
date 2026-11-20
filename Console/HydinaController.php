@@ -6,6 +6,8 @@ use yii\console\Controller;
 use yii\console\ExitCode;
 use yii\helpers\Console;
 use yii\helpers\FileHelper;
+use yii\helpers\Inflector;
+
 
 class HydinaController extends Controller
 {
@@ -87,38 +89,51 @@ class HydinaController extends Controller
     public function actionLivewire()
     {
         if (empty($this->component)) {
-            $this->stderr("Error: A required parameter is missing --component\n", Console::FG_RED);
-            return ExitCode::UNSPECIFIED_ERROR;
+            $this->stderr("[Error:] A required parameter is missing --component\n", Console::FG_RED);
+            return $this->actionHelp();
         }
         $className = ucfirst($this->component);
+        $viewName = Inflector::camel2id($className);
+
         $alias = '@' . str_replace('\\', '/', $this->targetNamespace);
         $directory = Yii::getAlias($alias, false);
         if (!$directory) {
-            $this->stderr("Error: Failed to determine path for namespace {$this->targetNamespace}\n", Console::FG_RED);
+            $this->stderr("[Error:] Failed to determine path for namespace {$this->targetNamespace}\n", Console::FG_RED);
             return ExitCode::UNSPECIFIED_ERROR;
         }
-        $filePath = $directory . DIRECTORY_SEPARATOR . $className . '.php';
 
-        if (file_exists($filePath)) {
-            $this->stderr("Error: Component {$className} already exists at path: {$filePath}\n", Console::FG_YELLOW);
+        $classFilePath = $directory . DIRECTORY_SEPARATOR . $className . '.php';
+        $viewsDirectory = $directory . DIRECTORY_SEPARATOR . 'views';
+        $viewFilePath = $viewsDirectory . DIRECTORY_SEPARATOR . $viewName . '.php';
+
+        if (file_exists($classFilePath)) {
+            $this->stderr("The {$className} component already exists: {$classFilePath}\n", Console::FG_YELLOW);
             return ExitCode::UNSPECIFIED_ERROR;
         }
+
         FileHelper::createDirectory($directory);
-        file_put_contents($filePath, $this->renderTemplate($className));
+        FileHelper::createDirectory($viewsDirectory);
 
-        $this->stdout("Error: Component {$className} successfully created: {$filePath}\n", Console::FG_GREEN);
+        file_put_contents($classFilePath, $this->renderClassTemplate($className, $viewName));
+        file_put_contents($viewFilePath, $this->renderViewTemplate($className));
+
+        $this->stdout("[Info:] 🤘 You component \"{$className}\" successfully created\n", Console::FG_GREEN);
+        $this->stdout("⚡- {$classFilePath}\n", Console::FG_GREEN);
+        $this->stdout("⚡- {$viewFilePath}\n", Console::FG_GREEN);
+
         return ExitCode::OK;
     }
 
-    protected function renderTemplate(string $className): string
+    protected function renderClassTemplate(string $className, string $viewName): string
     {
         $uses = ["use Hydina\\DefinaMoon\\App\\Component;"];
-        $body = "    //";
+        $property = "";
+        
         if (!empty($this->modelClass)) {
             $modelFqn = trim($this->ns, '\\') . '\\' . ucfirst($this->modelClass);
             $modelShortName = ucfirst($this->modelClass);
             $uses[] = "use {$modelFqn};";
-            $body = "    public ?{$modelShortName} \$model = null;";
+            $property = "\n    public ?{$modelShortName} \$model = null;\n";
         }
         $usesBlock = implode("\n", $uses);
         return <<<PHP
@@ -129,9 +144,24 @@ namespace {$this->targetNamespace};
 
 class {$className} extends Component
 {
-{$body}
-}
+{$property}
+    public function run(): string
+    {
+        return \$this->view('{$viewName}');
+    }
 
+}
 PHP;
     }
+
+
+    protected function renderViewTemplate(string $className): string
+    {
+        return <<<PHP
+<div>
+    <!-- Your {$className} component -->
+</div>
+PHP;
+    }
+
 }

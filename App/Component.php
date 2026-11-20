@@ -7,6 +7,8 @@ use yii\helpers\Html;
 use yii\helpers\Json;
 use ReflectionClass;
 use ReflectionProperty;
+use yii\helpers\Url;
+use yii\web\View;
 use Hydina\DefinaMoon\Assets\LivewireAsset;
 
 abstract class Component extends Widget
@@ -17,17 +19,18 @@ abstract class Component extends Widget
         parent::init();
 
         if ($this->getId(false) === null) {
-            $this->setId(uniqid('lw-'));
+            $this->setId(uniqid('defina-moon-'));
         }
 
+        $updateUri = Url::to(['/livewire/update']);
         $csrf = Yii::$app->request->getCsrfToken();
         $this->getView()->registerJs("
             window.livewireScriptConfig = {
-                uri: '/livewire/update',
+                uri: '{$updateUri}',
                 csrf: '{$csrf}',
                 progressBar: true
             };
-        ", \yii\web\View::POS_HEAD, 'livewire-config');
+        ", View::POS_END, 'livewire-config');
     }
 
     public function getState(): array
@@ -58,9 +61,12 @@ abstract class Component extends Widget
                 'locale' => Yii::$app->language,
             ],
         ]; 
-        $json = Json::encode($payload);
+        // $json = Json::encode($payload);
+        // $payload['checksum'] = hash_hmac('sha256', $json, Yii::$app->request->cookieValidationKey);
+        // return Json::encode($payload);
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $payload['checksum'] = hash_hmac('sha256', $json, Yii::$app->request->cookieValidationKey);
-        return Json::encode($payload);
+        return json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     protected function view(string $view, array $params = []): string
@@ -69,7 +75,7 @@ abstract class Component extends Widget
         return Html::tag('div', $innerHtml, [
             'wire:id' => $this->getId(),
             'wire:snapshot' => $this->buildSnapshot(),
-            'wire:effects' => '[]',
+            'wire:effects' => '{}',
         ]);
     }
 

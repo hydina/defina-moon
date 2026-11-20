@@ -9,6 +9,22 @@ use yii\helpers\Json;
 
 class LivewireController extends Controller
 {
+    public $enableCsrfValidation = false;
+
+    public function beforeAction($action)
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+        $body = Json::decode(Yii::$app->request->getRawBody() ?: '{}');
+        $token = $body['_token'] ?? Yii::$app->request->getCsrfTokenFromHeader();
+
+        if (!Yii::$app->request->validateCsrfToken($token)) {
+            throw new BadRequestHttpException('Invalid CSRF token.');
+        }
+        return true;
+    }
+
     public function actionUpdate()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -20,11 +36,10 @@ class LivewireController extends Controller
             $checksum = $snapshot['checksum'] ?? '';
             unset($snapshot['checksum']);
 
-            $validJson = Yii::$app->security->validateData(
-                $checksum, 
-                Yii::$app->request->cookieValidationKey
-            );
-            if ($validJson !== Json::encode($snapshot)) {
+            $reconstructedJson = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $expectedChecksum = hash_hmac('sha256', $reconstructedJson, Yii::$app->request->cookieValidationKey);
+
+            if (!hash_equals($expectedChecksum, $checksum)) {
                 throw new BadRequestHttpException('Snapshot tampered! Nice try.');
             }
             $widgetClass = $snapshot['memo']['name'];

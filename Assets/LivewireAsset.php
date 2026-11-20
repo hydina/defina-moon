@@ -5,7 +5,7 @@ use yii\web\AssetBundle;
 
 class LivewireAsset extends AssetBundle
 {
-    public $sourcePath = '@vendor/livewire/livewire/dist';
+    public $sourcePath = __DIR__ . '/dist';
     public $js = [
         'livewire.min.js',
     ];
