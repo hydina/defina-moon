@@ -10,7 +10,7 @@
         "dynamic"
     ],
     "type": "yii2-extension",
-    "license": "GPL-3.0 license",
+    "license": "GPL-3.0-only",
     "authors": [
         {
             "name": "Raymond Turchin",
