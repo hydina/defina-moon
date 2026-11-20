@@ -11,5 +11,32 @@ A full-featured PHP engine for creating dynamic web interfaces using Yii
 ## Installation Instructions:
 
 ```bash
-composer require hydina/definamoon
+composer require hydina/defina-moon
+```
+
+## Get information:
+
+Open console on your Yii project and insert:
+```bash
+yii hydina
+```
+
+## Get started
+
+Create your first component:
+```bash
+yii hydina/livewire --component=Counter
+```
+
+The result will be:
+```php
+<?php
+
+namespace frontend\livewire\widgets;
+use Hydina\DefinaMoon\App\Component;
+
+class Counter extends Component
+{
+    //
+}
 ```
